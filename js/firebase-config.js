@@ -12,6 +12,5 @@ const firebaseConfig = {
     appId: "1:134802132735:web:8c9772e4428e85b8cf06ca"
 };
 
-// Inicializar Firebase (formato compat para CDN)
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
