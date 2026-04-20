@@ -29,7 +29,8 @@ const FirebaseSync = {
         clientes: [],
         prestamos: [],
         movimientos: [],
-        notificaciones: []
+        notificaciones: [],
+        credenciales: null
     },
 
     _initialized: false,
@@ -37,7 +38,8 @@ const FirebaseSync = {
         clientes: database.ref('clientes'),
         prestamos: database.ref('prestamos'),
         movimientos: database.ref('movimientos'),
-        notificaciones: database.ref('notificaciones')
+        notificaciones: database.ref('notificaciones'),
+        credenciales: database.ref('credenciales')
     },
 
     // Cargar todos los datos de Firebase al cache local
@@ -48,12 +50,13 @@ const FirebaseSync = {
         );
 
         try {
-            const [clientes, prestamos, movimientos, notificaciones] = await Promise.race([
+            const [clientes, prestamos, movimientos, notificaciones, credenciales] = await Promise.race([
                 Promise.all([
                     this._refs.clientes.once('value'),
                     this._refs.prestamos.once('value'),
                     this._refs.movimientos.once('value'),
-                    this._refs.notificaciones.once('value')
+                    this._refs.notificaciones.once('value'),
+                    this._refs.credenciales.once('value')
                 ]),
                 timeout(8000)
             ]);
@@ -62,6 +65,7 @@ const FirebaseSync = {
             this._cache.prestamos = this._snapshotToArray(prestamos);
             this._cache.movimientos = this._snapshotToArray(movimientos);
             this._cache.notificaciones = this._snapshotToArray(notificaciones);
+            this._cache.credenciales = credenciales.val() || null;
 
             // Si no hay datos en Firebase pero si en localStorage, migrar
             // Solo migra si el usuario lo confirma para evitar subir datos viejos
@@ -165,6 +169,7 @@ const FirebaseSync = {
     getPrestamos() { return [...this._cache.prestamos]; },
     getMovimientos() { return [...this._cache.movimientos]; },
     getNotificaciones() { return [...this._cache.notificaciones]; },
+    getCredenciales() { return this._cache.credenciales; },
 
     // === ESCRITURA (actualiza cache + Firebase) ===
     saveClientes(clientes) {
@@ -190,5 +195,11 @@ const FirebaseSync = {
         this._cache.notificaciones = notificaciones;
         this._refs.notificaciones.set(notificaciones);
         localStorage.setItem('jhon_notificaciones', JSON.stringify(notificaciones));
+    },
+
+    saveCredenciales(creds) {
+        this._cache.credenciales = creds;
+        this._refs.credenciales.set(creds);
+        localStorage.setItem('jhon_credenciales', JSON.stringify(creds));
     }
 };
