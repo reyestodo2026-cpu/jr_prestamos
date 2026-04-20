@@ -46,39 +46,64 @@ const App = {
     // ==========================================
     // AUTENTICACION
     // ==========================================
-    // Usuario y contraseña por defecto (se puede cambiar)
-    CREDENTIALS: {
+    CREDENTIALS_DEFAULT: {
         usuario: 'jhonreyes',
         password: 'JhR2026!Pres'
     },
 
+    // Hashear password con SHA-256
+    async hashPassword(password) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    },
+
     initLogin() {
-        // Verificar si ya hay sesion activa
         if (sessionStorage.getItem('jhon_sesion') === 'activa') {
             this.mostrarApp();
             return;
         }
-
-        // Mostrar login
         document.getElementById('login-overlay').style.display = 'flex';
         document.getElementById('app-container').style.display = 'none';
-
         document.getElementById('form-login').addEventListener('submit', (e) => {
             e.preventDefault();
             this.intentarLogin();
         });
     },
 
-    intentarLogin() {
+    async intentarLogin() {
         const usuario = document.getElementById('login-usuario').value.trim().toLowerCase();
         const password = document.getElementById('login-password').value;
         const errorDiv = document.getElementById('login-error');
 
-        // Verificar credenciales
-        const credGuardadas = JSON.parse(localStorage.getItem('jhon_credenciales') || 'null');
-        const creds = credGuardadas || this.CREDENTIALS;
+        // Obtener credenciales guardadas (con hash) desde Firebase o localStorage
+        let credGuardadas = FirebaseSync.getCredenciales
+            ? FirebaseSync.getCredenciales()
+            : JSON.parse(localStorage.getItem('jhon_credenciales') || 'null');
 
-        if (usuario === creds.usuario.toLowerCase() && password === creds.password) {
+        let acceso = false;
+
+        if (credGuardadas && credGuardadas.passwordHash) {
+            // Comparar con hash guardado
+            const hashIngresado = await this.hashPassword(password);
+            acceso = usuario === credGuardadas.usuario.toLowerCase()
+                && hashIngresado === credGuardadas.passwordHash;
+        } else {
+            // Primera vez: comparar con credenciales por defecto (texto plano)
+            acceso = usuario === this.CREDENTIALS_DEFAULT.usuario.toLowerCase()
+                && password === this.CREDENTIALS_DEFAULT.password;
+            // Si acierta, hashear y guardar para la proxima vez
+            if (acceso) {
+                const hash = await this.hashPassword(password);
+                const nuevasCreds = { usuario: this.CREDENTIALS_DEFAULT.usuario, passwordHash: hash };
+                localStorage.setItem('jhon_credenciales', JSON.stringify(nuevasCreds));
+                if (FirebaseSync.saveCredenciales) FirebaseSync.saveCredenciales(nuevasCreds);
+            }
+        }
+
+        if (acceso) {
             errorDiv.style.display = 'none';
             sessionStorage.setItem('jhon_sesion', 'activa');
             this.mostrarApp();
@@ -103,10 +128,93 @@ const App = {
         document.getElementById('login-error').style.display = 'none';
     },
 
+    // ==========================================
+    // CAMBIAR CONTRASEÑA
+    // ==========================================
+    setupCambiarPassword() {
+        const form = document.getElementById('form-cambiar-password');
+        if (!form) return;
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.procesarCambioPassword();
+        });
+        // Toggle visibilidad passwords
+        document.querySelectorAll('.toggle-pw').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const input = btn.previousElementSibling;
+                const icon = btn.querySelector('i');
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.className = 'fas fa-eye-slash';
+                } else {
+                    input.type = 'password';
+                    icon.className = 'fas fa-eye';
+                }
+            });
+        });
+    },
+
+    async procesarCambioPassword() {
+        const pwActual    = document.getElementById('pw-actual').value;
+        const pwNueva     = document.getElementById('pw-nueva').value;
+        const pwConfirmar = document.getElementById('pw-confirmar').value;
+        const msgDiv      = document.getElementById('pw-mensaje');
+
+        msgDiv.style.display = 'none';
+
+        // Validar nueva contraseña
+        if (pwNueva.length < 12) {
+            msgDiv.className = 'pw-mensaje pw-error';
+            msgDiv.innerHTML = '<i class="fas fa-times-circle"></i> La nueva contraseña debe tener al menos 12 caracteres.';
+            msgDiv.style.display = 'flex';
+            return;
+        }
+        if (pwNueva !== pwConfirmar) {
+            msgDiv.className = 'pw-mensaje pw-error';
+            msgDiv.innerHTML = '<i class="fas fa-times-circle"></i> Las contraseñas nuevas no coinciden.';
+            msgDiv.style.display = 'flex';
+            return;
+        }
+
+        // Verificar contraseña actual
+        let credGuardadas = FirebaseSync.getCredenciales
+            ? FirebaseSync.getCredenciales()
+            : JSON.parse(localStorage.getItem('jhon_credenciales') || 'null');
+
+        let esCorrecta = false;
+        if (credGuardadas && credGuardadas.passwordHash) {
+            const hashActual = await this.hashPassword(pwActual);
+            esCorrecta = hashActual === credGuardadas.passwordHash;
+        } else {
+            esCorrecta = pwActual === this.CREDENTIALS_DEFAULT.password;
+        }
+
+        if (!esCorrecta) {
+            msgDiv.className = 'pw-mensaje pw-error';
+            msgDiv.innerHTML = '<i class="fas fa-times-circle"></i> La contraseña actual es incorrecta.';
+            msgDiv.style.display = 'flex';
+            return;
+        }
+
+        // Guardar nueva contraseña hasheada
+        const usuario = credGuardadas ? credGuardadas.usuario : this.CREDENTIALS_DEFAULT.usuario;
+        const nuevoHash = await this.hashPassword(pwNueva);
+        const nuevasCreds = { usuario, passwordHash: nuevoHash };
+
+        localStorage.setItem('jhon_credenciales', JSON.stringify(nuevasCreds));
+        if (FirebaseSync.saveCredenciales) FirebaseSync.saveCredenciales(nuevasCreds);
+
+        msgDiv.className = 'pw-mensaje pw-ok';
+        msgDiv.innerHTML = '<i class="fas fa-check-circle"></i> ¡Contraseña actualizada correctamente!';
+        msgDiv.style.display = 'flex';
+        document.getElementById('form-cambiar-password').reset();
+    },
+
     init() {
         this.setupNavigation();
         this.setupForms();
         this.setupFilters();
+        this.setupCambiarPassword();
         this.refreshAll();
     },
 
