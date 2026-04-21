@@ -3,13 +3,13 @@
 // ============================================
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBFERXwYzqwWh1N3gKBr91DKyti6YBGFSM",
-    authDomain: "jr-prestamos.firebaseapp.com",
-    databaseURL: "https://jr-prestamos-default-rtdb.firebaseio.com",
-    projectId: "jr-prestamos",
-    storageBucket: "jr-prestamos.firebasestorage.app",
-    messagingSenderId: "134802132735",
-    appId: "1:134802132735:web:8c9772e4428e85b8cf06ca"
+    apiKey: "AIzaSyDJrlxp_P-1JfOQMVK65edsm-WvGLOsdL8",
+    authDomain: "jr-prestamos-f6af0.firebaseapp.com",
+    databaseURL: "https://jr-prestamos-f6af0-default-rtdb.firebaseio.com",
+    projectId: "jr-prestamos-f6af0",
+    storageBucket: "jr-prestamos-f6af0.firebasestorage.app",
+    messagingSenderId: "954513489683",
+    appId: "1:954513489683:web:5ca5ce33099f94e5aca4e6"
 };
 
 // Inicializar Firebase (formato compat para CDN)
